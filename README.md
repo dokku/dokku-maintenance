@@ -5,7 +5,11 @@ dokku-maintenance is a plugin for [dokku][dokku] that gives the ability to enabl
 ## Installation
 
 ```sh
+# dokku 0.3.26
 $ sudo git clone https://github.com/Flink/dokku-maintenance.git /var/lib/dokku/plugins/maintenance
+
+# dokku 0.4+
+$ dokku plugin:install https://github.com/Flink/dokku-maintenance.git
 ```
 
 ## Commands

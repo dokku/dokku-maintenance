@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -eo pipefail; [[ $DOKKU_TRACE ]] && set -x
-source "$PLUGIN_PATH/common/functions"
+
+PLUGIN_BASE_PATH="$PLUGIN_PATH"
+if [[ -n $DOKKU_API_VERSION ]]; then
+  PLUGIN_BASE_PATH="$PLUGIN_ENABLED_PATH"
+fi
+source "$PLUGIN_BASE_PATH/common/functions"
 
 reload_nginx () {
   case "$DOKKU_DISTRO" in
@@ -74,12 +79,18 @@ case "$1" in
     ;;
 
   help | maintenance:help)
-    cat && cat<<EOF
+    HELP=$(cat<<EOF
     maintenance <app>, Display the current maintenance status of app
     maintenance:on <app>, Put the app into maintenance mode
     maintenance:off <app>, Take the app out of maintenance mode
     maintenance:custom-page <app>, Imports a tarball from stdin; should contain at least maintenance.html
 EOF
+)
+    if [[ -n $DOKKU_API_VERSION ]]; then
+      echo "$HELP"
+    else
+      cat && echo "$HELP"
+    fi
     ;;
 
   *)
