@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+echo "$(basename "$0") $*"
+exit 0
