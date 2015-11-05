@@ -6,10 +6,10 @@ dokku-maintenance is a plugin for [dokku][dokku] that gives the ability to enabl
 
 ```sh
 # dokku 0.3.26
-$ sudo git clone https://github.com/Flink/dokku-maintenance.git /var/lib/dokku/plugins/maintenance
+$ sudo git clone https://github.com/dokku/dokku-maintenance.git /var/lib/dokku/plugins/maintenance
 
 # dokku 0.4+
-$ dokku plugin:install https://github.com/Flink/dokku-maintenance.git
+$ dokku plugin:install https://github.com/dokku/dokku-maintenance.git
 ```
 
 ## Commands
