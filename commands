@@ -6,18 +6,7 @@ if [[ -n $DOKKU_API_VERSION ]]; then
   PLUGIN_BASE_PATH="$PLUGIN_ENABLED_PATH"
 fi
 source "$PLUGIN_BASE_PATH/common/functions"
-
-reload_nginx () {
-  case "$DOKKU_DISTRO" in
-    ubuntu)
-      sudo /etc/init.d/nginx reload > /dev/null
-      ;;
-
-    opensuse)
-      sudo /sbin/service nginx reload > /dev/null
-      ;;
-  esac
-}
+source "$PLUGIN_BASE_PATH/nginx-vhosts/functions"
 
 case "$1" in
   maintenance:on)
@@ -34,7 +23,7 @@ case "$1" in
     fi
     cp "$(dirname $0)/templates/maintenance.conf" "$DOKKU_ROOT/$APP/nginx.conf.d"
     sed -i "s,{APP_ROOT},$DOKKU_ROOT/$APP," "$DOKKU_ROOT/$APP/nginx.conf.d/maintenance.conf"
-    reload_nginx
+    restart_nginx
     dokku_log_verbose "done"
     ;;
 
@@ -46,7 +35,7 @@ case "$1" in
     if [[ -f "$DOKKU_ROOT/$APP/nginx.conf.d/maintenance.conf" ]]; then
       rm "$DOKKU_ROOT/$APP/nginx.conf.d/maintenance.conf"
     fi
-    reload_nginx
+    restart_nginx
     dokku_log_verbose "done"
     ;;
 
