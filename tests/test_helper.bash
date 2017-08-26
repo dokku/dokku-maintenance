@@ -3,11 +3,18 @@ export DOKKU_QUIET_OUTPUT=1
 export DOKKU_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/dokku"
 export DOKKU_VERSION=${DOKKU_VERSION:-"master"}
 export PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/bin:$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/dokku:$PATH"
+export PLUGIN_COMMAND_PREFIX="maintenance"
 export PLUGIN_PATH="$DOKKU_ROOT/plugins"
 export PLUGIN_ENABLED_PATH="$PLUGIN_PATH"
 export PLUGIN_AVAILABLE_PATH="$PLUGIN_PATH"
 export PLUGIN_CORE_AVAILABLE_PATH="$PLUGIN_PATH"
-export PLUGIN_DATA_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fixtures"
+export MAINTENANCE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fixtures"
+export PLUGIN_DATA_ROOT="$MAINTENANCE_ROOT"
+if [[ "$(uname)" == "Darwin" ]]; then
+  export PLUGN_URL="https://github.com/dokku/plugn/releases/download/v0.3.0/plugn_0.3.0_darwin_x86_64.tgz"
+else
+  export PLUGN_URL="https://github.com/dokku/plugn/releases/download/v0.3.0/plugn_0.3.0_linux_x86_64.tgz"
+fi
 
 mkdir -p "$PLUGIN_DATA_ROOT"
 rm -rf "${PLUGIN_DATA_ROOT:?}"/*
@@ -36,6 +43,14 @@ assert_success() {
   if [ "$status" -ne 0 ]; then
     flunk "command failed with exit status $status"
   elif [ "$#" -gt 0 ]; then
+    assert_output "$1"
+  fi
+}
+
+assert_failure() {
+  if [[ "$status" -eq 0 ]]; then
+    flunk "expected failed exit status"
+  elif [[ "$#" -gt 0 ]]; then
     assert_output "$1"
   fi
 }
