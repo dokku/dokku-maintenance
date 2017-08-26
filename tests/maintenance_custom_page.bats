@@ -16,7 +16,7 @@ setup() {
 }
 
 teardown() {
-  rm "$DOKKU_ROOT/my_app" -rf
+  rm -rf "$DOKKU_ROOT/my_app"
 }
 
 @test "(maintenance:custom-page) error when there are no arguments" {

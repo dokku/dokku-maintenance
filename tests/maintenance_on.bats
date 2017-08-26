@@ -6,7 +6,7 @@ setup() {
 }
 
 teardown() {
-  rm "$DOKKU_ROOT/my_app" -rf
+  rm -rf "$DOKKU_ROOT/my_app"
 }
 
 @test "(maintenance:on) error when there are no arguments" {
