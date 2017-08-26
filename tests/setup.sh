@@ -12,10 +12,12 @@ echo "Dokku version $DOKKU_VERSION"
 git checkout "$DOKKU_VERSION" > /dev/null
 cd -
 
-rm -rf "$DOKKU_ROOT/plugins/maintenance"
-mkdir -p "$DOKKU_ROOT/plugins/maintenance"
-find ./ -maxdepth 1 -type f -exec cp '{}' "$DOKKU_ROOT/plugins/maintenance" \;
-cp ./templates -r "$DOKKU_ROOT/plugins/maintenance"
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
+rm -rf $DOKKU_ROOT/plugins/$PLUGIN_COMMAND_PREFIX
+mkdir -p $DOKKU_ROOT/plugins/$PLUGIN_COMMAND_PREFIX $DOKKU_ROOT/plugins/$PLUGIN_COMMAND_PREFIX/subcommands $DOKKU_ROOT/plugins/$PLUGIN_COMMAND_PREFIX/templates
+find ./ -maxdepth 1 -type f -exec cp '{}' $DOKKU_ROOT/plugins/$PLUGIN_COMMAND_PREFIX \;
+find ./subcommands -maxdepth 1 -type f -exec cp '{}' $DOKKU_ROOT/plugins/$PLUGIN_COMMAND_PREFIX/subcommands \;
+cp ./templates -r "$DOKKU_ROOT/plugins/$PLUGIN_COMMAND_PREFIX"
 echo "$DOKKU_VERSION" > $DOKKU_ROOT/VERSION
 
 if [[ ! -f $BIN_STUBS/plugn ]]; then
