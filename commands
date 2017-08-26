@@ -13,15 +13,16 @@ case "$1" in
     [[ -z $2 ]] && echo "Please specify an app to run the command on" && exit 1
     verify_app_name "$2"
     APP="$2"
+    MAINTENANCE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     dokku_log_info1 "Enabling maintenance mode for $APP..."
     if [[ ! -d "$DOKKU_ROOT/$APP/nginx.conf.d" ]]; then
       mkdir "$DOKKU_ROOT/$APP/nginx.conf.d"
     fi
     if [[ ! -d "$DOKKU_ROOT/$APP/maintenance" ]]; then
       mkdir "$DOKKU_ROOT/$APP/maintenance"
-      cp "$(dirname $0)/templates/maintenance.html" "$DOKKU_ROOT/$APP/maintenance"
+      cp "$MAINTENANCE_ROOT/templates/maintenance.html" "$DOKKU_ROOT/$APP/maintenance"
     fi
-    cp "$(dirname $0)/templates/maintenance.conf" "$DOKKU_ROOT/$APP/nginx.conf.d"
+    cp "$MAINTENANCE_ROOT/templates/maintenance.conf" "$DOKKU_ROOT/$APP/nginx.conf.d"
     sed -i "s,{APP_ROOT},$DOKKU_ROOT/$APP," "$DOKKU_ROOT/$APP/nginx.conf.d/maintenance.conf"
     restart_nginx
     dokku_log_verbose "done"
@@ -58,12 +59,16 @@ case "$1" in
     APP="$2"
     dokku_log_info1 "Importing custom maintenance page..."
     TEMP_DIR=$(mktemp -d)
-    cd $TEMP_DIR
+    trap 'rm -rf "$TEMP_DIR" > /dev/null' RETURN INT TERM EXIT
+
+    pushd "$TEMP_DIR" > /dev/null
     tar xvf - <&0
     [[ ! -f "$TEMP_DIR/maintenance.html" ]] && echo "Tar archive missing maintenance.html" && exit 1
     mkdir -p "$DOKKU_ROOT/$APP/maintenance"
+
+    # shellcheck disable=SC2086
     mv $TEMP_DIR/* "$DOKKU_ROOT/$APP/maintenance"
-    rm -rf $TEMP_DIR
+    popd > /dev/null
     dokku_log_verbose "done"
     ;;
 
@@ -83,7 +88,7 @@ EOF
     ;;
 
   *)
-    exit $DOKKU_NOT_IMPLEMENTED_EXIT
+    exit "$DOKKU_NOT_IMPLEMENTED_EXIT"
     ;;
 
 esac
