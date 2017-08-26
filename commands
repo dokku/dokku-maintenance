@@ -1,89 +1,52 @@
 #!/usr/bin/env bash
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/config"
+[[ " help $PLUGIN_COMMAND_PREFIX:help " == *" $1 "* ]] || [[ "$1" == "$PLUGIN_COMMAND_PREFIX:"* ]] || exit "$DOKKU_NOT_IMPLEMENTED_EXIT"
 set -eo pipefail; [[ $DOKKU_TRACE ]] && set -x
 
-PLUGIN_BASE_PATH="$PLUGIN_PATH"
-if [[ -n $DOKKU_API_VERSION ]]; then
-  PLUGIN_BASE_PATH="$PLUGIN_ENABLED_PATH"
-fi
 source "$PLUGIN_BASE_PATH/common/functions"
-source "$PLUGIN_BASE_PATH/nginx-vhosts/functions"
 
 case "$1" in
-  maintenance:on)
-    [[ -z $2 ]] && echo "Please specify an app to run the command on" && exit 1
-    verify_app_name "$2"
-    APP="$2"
-    MAINTENANCE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    dokku_log_info1 "Enabling maintenance mode for $APP..."
-    if [[ ! -d "$DOKKU_ROOT/$APP/nginx.conf.d" ]]; then
-      mkdir "$DOKKU_ROOT/$APP/nginx.conf.d"
-    fi
-    if [[ ! -d "$DOKKU_ROOT/$APP/maintenance" ]]; then
-      mkdir "$DOKKU_ROOT/$APP/maintenance"
-      cp "$MAINTENANCE_ROOT/templates/maintenance.html" "$DOKKU_ROOT/$APP/maintenance"
-    fi
-    cp "$MAINTENANCE_ROOT/templates/maintenance.conf" "$DOKKU_ROOT/$APP/nginx.conf.d"
-    sed -i "s,{APP_ROOT},$DOKKU_ROOT/$APP," "$DOKKU_ROOT/$APP/nginx.conf.d/maintenance.conf"
-    restart_nginx
-    dokku_log_verbose "done"
+  $PLUGIN_COMMAND_PREFIX:on)
+    "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/subcommands/on" "$@"
     ;;
 
-  maintenance:off)
-    [[ -z $2 ]] && echo "Please specify an app to run the command on" && exit 1
-    verify_app_name "$2"
-    APP="$2"
-    dokku_log_info1 "Disabling maintenance mode for $APP..."
-    if [[ -f "$DOKKU_ROOT/$APP/nginx.conf.d/maintenance.conf" ]]; then
-      rm "$DOKKU_ROOT/$APP/nginx.conf.d/maintenance.conf"
-    fi
-    restart_nginx
-    dokku_log_verbose "done"
+  $PLUGIN_COMMAND_PREFIX:off)
+    "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/subcommands/off" "$@"
     ;;
 
-  maintenance)
-    [[ -z $2 ]] && echo "Please specify an app to run the command on" && exit 1
-    verify_app_name "$2"
-    APP="$2"
-    dokku_log_info1 "Maintenance status of $APP: "
-    MAINTENANCE_STATUS="off"
-    if [[ -f "$DOKKU_ROOT/$APP/nginx.conf.d/maintenance.conf" ]]; then
-      MAINTENANCE_STATUS="on"
-    fi
-    dokku_log_verbose "$MAINTENANCE_STATUS"
+  $PLUGIN_COMMAND_PREFIX)
+    "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/subcommands/default" "$@"
     ;;
 
-  maintenance:custom-page)
-    [[ -z $2 ]] && echo "Please specify an app to run the command on" && exit 1
-    verify_app_name "$2"
-    [[ -t 0 ]] && echo "Tar archive containing at least maintenance.html expected on stdin" && exit 1
-    APP="$2"
-    dokku_log_info1 "Importing custom maintenance page..."
-    TEMP_DIR=$(mktemp -d)
-    trap 'rm -rf "$TEMP_DIR" > /dev/null' RETURN INT TERM EXIT
-
-    pushd "$TEMP_DIR" > /dev/null
-    tar xvf - <&0
-    [[ ! -f "$TEMP_DIR/maintenance.html" ]] && echo "Tar archive missing maintenance.html" && exit 1
-    mkdir -p "$DOKKU_ROOT/$APP/maintenance"
-
-    # shellcheck disable=SC2086
-    mv $TEMP_DIR/* "$DOKKU_ROOT/$APP/maintenance"
-    popd > /dev/null
-    dokku_log_verbose "done"
+  $PLUGIN_COMMAND_PREFIX:custom-page)
+    "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/subcommands/custom-page" "$@"
     ;;
 
-  help | maintenance:help)
-    HELP=$(cat<<EOF
-    maintenance <app>, Display the current maintenance status of app
-    maintenance:on <app>, Put the app into maintenance mode
-    maintenance:off <app>, Take the app out of maintenance mode
-    maintenance:custom-page <app>, Imports a tarball from stdin; should contain at least maintenance.html
-EOF
-)
-    if [[ -n $DOKKU_API_VERSION ]]; then
-      echo "$HELP"
+  help | $PLUGIN_COMMAND_PREFIX:help)
+    help_content_func() {
+      # shellcheck disable=SC2034
+      declare desc="return $PLUGIN_COMMAND_PREFIX plugin help content"
+      cat<<help_content
+    $PLUGIN_COMMAND_PREFIX <app>, Display the current maintenance status of app
+    $PLUGIN_COMMAND_PREFIX:on <app>, Put the app into maintenance mode
+    $PLUGIN_COMMAND_PREFIX:off <app>, Take the app out of maintenance mode
+    $PLUGIN_COMMAND_PREFIX:custom-page <app>, Imports a tarball from stdin; should contain at least maintenance.html
+help_content
+    }
+
+    if [[ $1 = "$PLUGIN_COMMAND_PREFIX:help" ]] ; then
+      echo -e "Usage: dokku $PLUGIN_COMMAND_PREFIX[:COMMAND]"
+      echo ''
+      echo "Manage the maintenance mode of your applications."
+      echo ''
+      echo 'Additional commands:'
+      help_content_func | sort | column -c2 -t -s,
+    elif [[ $(ps -o command= $PPID) == *"--all"* ]]; then
+      help_content_func
     else
-      cat && echo "$HELP"
+      cat<<help_desc
+    $PLUGIN_COMMAND_PREFIX, Plugin for managing application maintenance mode
+help_desc
     fi
     ;;
 

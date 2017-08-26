@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
+source "$PLUGIN_BASE_PATH/common/functions"
+set -eo pipefail; [[ $DOKKU_TRACE ]] && set -x
+
+maintenance-default-cmd() {
+  declare desc="display the current maintenance status of app"
+  declare APP="$2"
+  local MAINTENANCE_STATUS="off"
+  [[ -z "$APP" ]] && dokku_log_fail "Please specify an app to run the command on"
+  verify_app_name "$APP"
+
+  dokku_log_info1 "Maintenance status of $APP: "
+  if [[ -f "$DOKKU_ROOT/$APP/nginx.conf.d/maintenance.conf" ]]; then
+    MAINTENANCE_STATUS="on"
+  fi
+  dokku_log_verbose "$MAINTENANCE_STATUS"
+}
+
+maintenance-default-cmd "$@"

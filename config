@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+export PLUGIN_COMMAND_PREFIX="maintenance"
+export PLUGIN_VARIABLE="MAINTENANCE"
+export PLUGIN_BASE_PATH="$PLUGIN_PATH"
+export MAINTENANCE_PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [[ -n $DOKKU_API_VERSION ]]; then
+  export PLUGIN_BASE_PATH="$PLUGIN_ENABLED_PATH"
+fi
+
+if [[ -d "$PLUGIN_DATA_ROOT/*" ]]; then
+  rm -rf "${PLUGIN_DATA_ROOT:?}/*"
+fi

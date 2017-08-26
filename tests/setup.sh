@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test_helper.bash"
 
+BIN_STUBS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/bin"
+
 if [[ ! -d $DOKKU_ROOT ]]; then
   git clone https://github.com/progrium/dokku.git "$DOKKU_ROOT" > /dev/null
 fi
@@ -14,3 +16,11 @@ rm -rf "$DOKKU_ROOT/plugins/maintenance"
 mkdir -p "$DOKKU_ROOT/plugins/maintenance"
 find ./ -maxdepth 1 -type f -exec cp '{}' "$DOKKU_ROOT/plugins/maintenance" \;
 cp ./templates -r "$DOKKU_ROOT/plugins/maintenance"
+echo "$DOKKU_VERSION" > $DOKKU_ROOT/VERSION
+
+if [[ ! -f $BIN_STUBS/plugn ]]; then
+  wget -O- "$PLUGN_URL" | tar xzf - -C "$BIN_STUBS"
+  plugn init
+  find "$DOKKU_ROOT/plugins" -mindepth 1 -maxdepth 1 -type d ! -name 'available' ! -name 'enabled' -exec ln -s {} "$DOKKU_ROOT/plugins/available" \;
+  find "$DOKKU_ROOT/plugins" -mindepth 1 -maxdepth 1 -type d ! -name 'available' ! -name 'enabled' -exec ln -s {} "$DOKKU_ROOT/plugins/enabled" \;
+fi
