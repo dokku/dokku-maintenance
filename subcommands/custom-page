@@ -22,7 +22,7 @@ maintenance-custom-page-cmd() {
 
   # shellcheck disable=SC2086
   mv $TEMP_DIR/* "$DOKKU_ROOT/$APP/maintenance"
-  popd > /dev/null
+  popd &>/dev/null || pushd "/tmp" >/dev/null
   dokku_log_verbose "done"
 }
 
