@@ -20,8 +20,9 @@ sudo dokku plugin:install https://github.com/dokku/dokku-maintenance.git mainten
 $ dokku help
     maintenance <app>                               Display the current maintenance status of app
     maintenance:custom-page <app>                   Imports a tarball from stdin; should contain at least maintenance.html
-    maintenance:off <app>                           Take the app out of maintenance mode
-    maintenance:on <app>                            Put the app into maintenance mode
+    maintenance:disable <app>                       Disable app maintenance mode
+    maintenance:enable <app>                        Enable app
+     maintenance mode
 ```
 
 ## usage
@@ -39,8 +40,8 @@ $ ssh dokku@server maintenance my-app # Client side
 Enable maintenance mode for my-app
 
 ```
-# dokku maintenance:on my-app            # Server side
-$ ssh dokku@server maintenance:on my-app # Client side
+# dokku maintenance:enable my-app            # Server side
+$ ssh dokku@server maintenance:enable my-app # Client side
 
 -----> Enabling maintenance mode for ruby-test...
        done
@@ -49,8 +50,8 @@ $ ssh dokku@server maintenance:on my-app # Client side
 Disable maintenance mode for my-app
 
 ```
-# dokku maintenance:off my-app            # Server side
-$ ssh dokku@server maintenance:off my-app # Client side
+# dokku maintenance:disable my-app            # Server side
+$ ssh dokku@server maintenance:disable my-app # Client side
 
 -----> Disabling maintenance mode for ruby-test...
        done

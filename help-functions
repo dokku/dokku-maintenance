@@ -28,8 +28,8 @@ fn-help-content() {
   declare desc="return help content"
   cat <<help_content
     maintenance:custom-page <app>, Imports a tarball from stdin; should contain at least maintenance.html
-    maintenance:off <app>, Take the app out of maintenance mode
-    maintenance:on <app>, Put the app into maintenance mode
+    maintenance:disable <app>, Disable app maintenance mode
+    maintenance:enable <app>, Enable app maintenance mode
     maintenance:report [<app>] [<flag>], Displays an maintenance report for one or more apps
 help_content
 }

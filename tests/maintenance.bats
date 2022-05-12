@@ -9,23 +9,23 @@ teardown() {
   rm -rf "$DOKKU_ROOT/my_app"
 }
 
-@test "(maintenance) error when there are no arguments" {
-  run dokku maintenance
+@test "(maintenance:report) error when there are no arguments" {
+  run dokku maintenance:report
   assert_contains "${lines[*]}" "Please specify an app to run the command on"
 }
 
-@test "(maintenance) error when app does not exist" {
-  run dokku maintenance non_existing_app
+@test "(maintenance:report) error when app does not exist" {
+  run dokku maintenance:report non_existing_app
   assert_contains "${lines[*]}" "App non_existing_app does not exist"
 }
 
-@test "(maintenance) success when on" {
-  dokku maintenance:on my_app
-  run dokku maintenance my_app
-  assert_contains "${lines[*]}" "on"
+@test "(maintenance:report) success when enabled" {
+  dokku maintenance:enable my_app
+  run dokku maintenance:report my_app
+  assert_contains "${lines[*]}" "true"
 }
 
-@test "(maintenance) success when off" {
-  run dokku maintenance my_app
-  assert_contains "${lines[*]}" "off"
+@test "(maintenance:report) success when disabled" {
+  run dokku maintenance:report my_app
+  assert_contains "${lines[*]}" "false"
 }
