@@ -2,7 +2,8 @@
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
 source "$PLUGIN_BASE_PATH/common/functions"
 source "$PLUGIN_AVAILABLE_PATH/nginx-vhosts/functions"
-set -eo pipefail; [[ $DOKKU_TRACE ]] && set -x
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
 
 maintenance-on-cmd() {
   declare desc="put the app into maintenance mode"

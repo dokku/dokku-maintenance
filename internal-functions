@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+source "$PLUGIN_CORE_AVAILABLE_PATH/common/property-functions"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+fn-maintenance-enabled() {
+  declare desc="check if an app has maintenance enabled"
+  declare APP="$1"
+  local APP_ROOT="$DOKKU_ROOT/$APP"
+  local enabled=false
+
+  if [[ -f "$APP_ROOT/nginx.conf.d/maintenance.conf" ]]; then
+    enabled=true
+  fi
+
+  echo "$enabled"
+}
