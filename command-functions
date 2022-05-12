@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/config"
 source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
 source "$PLUGIN_CORE_AVAILABLE_PATH/common/property-functions"
 source "$PLUGIN_AVAILABLE_PATH/maintenance/internal-functions"
+source "$PLUGIN_AVAILABLE_PATH/nginx-vhosts/functions"
 set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x
 
@@ -65,4 +67,98 @@ cmd-maintenance-report-single() {
     [[ "$match" == "true" ]] || dokku_log_fail "Invalid flag passed, valid flags:${valid_flags}"
     [[ "$value_exists" == "true" ]] || dokku_log_fail "not deployed"
   fi
+}
+
+cmd-maintenance-custom-page() {
+  declare desc="imports a tarball from stdin; should contain at least maintenance.html"
+  declare APP="$2"
+  local TEMP_DIR
+  [[ -z "$APP" ]] && dokku_log_fail "Please specify an app to run the command on"
+  verify_app_name "$APP"
+
+  [[ -t 0 ]] && dokku_log_fail "Tar archive containing at least maintenance.html expected on stdin"
+  dokku_log_info1 "Importing custom maintenance page..."
+  TEMP_DIR=$(mktemp -d)
+  trap 'rm -rf "$TEMP_DIR" > /dev/null' RETURN INT TERM EXIT
+
+  pushd "$TEMP_DIR" >/dev/null
+  tar xvf - <&0
+  [[ ! -f "$TEMP_DIR/maintenance.html" ]] && dokku_log_fail "Tar archive missing maintenance.html"
+  mkdir -p "$DOKKU_ROOT/$APP/maintenance"
+
+  # shellcheck disable=SC2086
+  mv $TEMP_DIR/* "$DOKKU_ROOT/$APP/maintenance"
+  popd &>/dev/null || pushd "/tmp" >/dev/null
+  dokku_log_verbose "Done"
+}
+
+cmd-maintenance-disable() {
+  declare desc="take the app out of maintenance mode"
+  declare cmd="maintenance:disable"
+  [[ "$1" == "$cmd" ]] && shift 1
+  if [[ "$1" == "maintenance:off" ]]; then
+    dokku_log_warn "Deprecated: Please use maintenance:disable"
+    shift 1
+  fi
+
+  # Support --app/$DOKKU_APP_NAME flag by reordering args into "$cmd $DOKKU_APP_NAME $@"
+  local argv=("$@")
+  [[ -n "$DOKKU_APP_NAME" ]] && set -- "$DOKKU_APP_NAME" $@
+  ##
+
+  declare APP="$1"
+  local NGINX_CONF_D="$DOKKU_ROOT/$APP/nginx.conf.d"
+
+  [[ -z "$APP" ]] && dokku_log_fail "Please specify an app to run the command on"
+  verify_app_name "$APP"
+
+  if [[ ! -f "$NGINX_CONF_D/maintenance.conf" ]]; then
+    dokku_log_info1 "Maintenance mode already disabled"
+    return
+  fi
+
+  dokku_log_info1 "Disabling maintenance mode for $APP..."
+  [[ -f "$NGINX_CONF_D/maintenance.conf" ]] && rm "$NGINX_CONF_D/maintenance.conf"
+  validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
+  dokku_log_verbose "Done"
+}
+
+cmd-maintenance-enable() {
+  declare desc="put the app into maintenance mode"
+  declare cmd="maintenance:enable"
+  [[ "$1" == "$cmd" ]] && shift 1
+  if [[ "$1" == "maintenance:on" ]]; then
+    dokku_log_warn "Deprecated: Please use maintenance:enable"
+    shift 1
+  fi
+
+  # Support --app/$DOKKU_APP_NAME flag by reordering args into "$cmd $DOKKU_APP_NAME $@"
+  local argv=("$@")
+  [[ -n "$DOKKU_APP_NAME" ]] && set -- "$DOKKU_APP_NAME" $@
+  ##
+
+  declare APP="$1"
+  local NGINX_CONF_D="$DOKKU_ROOT/$APP/nginx.conf.d"
+  local MAINTENANCE_APP_D="$DOKKU_ROOT/$APP/maintenance"
+
+  [[ -z "$APP" ]] && dokku_log_fail "Please specify an app to run the command on"
+  verify_app_name "$APP"
+
+  if [[ -f "$NGINX_CONF_D/maintenance.conf" ]]; then
+    dokku_log_info1 "Maintenance mode already enabled"
+    return
+  fi
+
+  dokku_log_info1 "Enabling maintenance mode for $APP..."
+  [[ -d "$NGINX_CONF_D" ]] || mkdir "$NGINX_CONF_D"
+
+  if [[ ! -d "$MAINTENANCE_APP_D" ]]; then
+    mkdir "$MAINTENANCE_APP_D"
+    cp "$MAINTENANCE_PLUGIN_ROOT/templates/maintenance.html" "$MAINTENANCE_APP_D"
+  fi
+
+  cp "$MAINTENANCE_PLUGIN_ROOT/templates/maintenance.conf" "$NGINX_CONF_D"
+  sed -i "s,{APP_ROOT},$DOKKU_ROOT/$APP," "$NGINX_CONF_D/maintenance.conf"
+  validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
+  dokku_log_verbose "Done"
 }
