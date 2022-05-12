@@ -7,7 +7,15 @@ set -eo pipefail
 
 maintenance-off-cmd() {
   declare desc="take the app out of maintenance mode"
-  declare APP="$2"
+  declare cmd="maintenance:on"
+  [[ "$1" == "$cmd" ]] && shift 1
+
+  # Support --app/$DOKKU_APP_NAME flag by reordering args into "$cmd $DOKKU_APP_NAME $@"
+  local argv=("$@")
+  [[ -n "$DOKKU_APP_NAME" ]] && set -- $DOKKU_APP_NAME $@
+  ##
+
+  declare APP="$1"
   local NGINX_CONF_D="$DOKKU_ROOT/$APP/nginx.conf.d"
 
   [[ -z "$APP" ]] && dokku_log_fail "Please specify an app to run the command on"
