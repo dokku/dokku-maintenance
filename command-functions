@@ -89,7 +89,7 @@ cmd-maintenance-custom-page() {
   # shellcheck disable=SC2086
   mv $TEMP_DIR/* "$DOKKU_ROOT/$APP/maintenance"
   popd &>/dev/null || pushd "/tmp" >/dev/null
-  dokku_log_verbose "done"
+  dokku_log_verbose "Done"
 }
 
 cmd-maintenance-disable() {
@@ -120,7 +120,7 @@ cmd-maintenance-disable() {
   dokku_log_info1 "Disabling maintenance mode for $APP..."
   [[ -f "$NGINX_CONF_D/maintenance.conf" ]] && rm "$NGINX_CONF_D/maintenance.conf"
   validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
-  dokku_log_verbose "done"
+  dokku_log_verbose "Done"
 }
 
 cmd-maintenance-enable() {
@@ -160,5 +160,5 @@ cmd-maintenance-enable() {
   cp "$MAINTENANCE_PLUGIN_ROOT/templates/maintenance.conf" "$NGINX_CONF_D"
   sed -i "s,{APP_ROOT},$DOKKU_ROOT/$APP," "$NGINX_CONF_D/maintenance.conf"
   validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
-  dokku_log_verbose "done"
+  dokku_log_verbose "Done"
 }
