@@ -1,30 +1,6 @@
 #!/usr/bin/env bash
-source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
-source "$PLUGIN_BASE_PATH/common/functions"
+source "$PLUGIN_AVAILABLE_PATH/maintenance/command-functions"
 set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x
-
-maintenance-custom-page-cmd() {
-  declare desc="imports a tarball from stdin; should contain at least maintenance.html"
-  declare APP="$2"
-  local TEMP_DIR
-  [[ -z "$APP" ]] && dokku_log_fail "Please specify an app to run the command on"
-  verify_app_name "$APP"
-
-  [[ -t 0 ]] && dokku_log_fail "Tar archive containing at least maintenance.html expected on stdin"
-  dokku_log_info1 "Importing custom maintenance page..."
-  TEMP_DIR=$(mktemp -d)
-  trap 'rm -rf "$TEMP_DIR" > /dev/null' RETURN INT TERM EXIT
-
-  pushd "$TEMP_DIR" >/dev/null
-  tar xvf - <&0
-  [[ ! -f "$TEMP_DIR/maintenance.html" ]] && dokku_log_fail "Tar archive missing maintenance.html"
-  mkdir -p "$DOKKU_ROOT/$APP/maintenance"
-
-  # shellcheck disable=SC2086
-  mv $TEMP_DIR/* "$DOKKU_ROOT/$APP/maintenance"
-  popd &>/dev/null || pushd "/tmp" >/dev/null
-  dokku_log_verbose "done"
-}
 
 maintenance-custom-page-cmd "$@"
