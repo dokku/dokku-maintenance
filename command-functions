@@ -112,6 +112,11 @@ cmd-maintenance-disable() {
   [[ -z "$APP" ]] && dokku_log_fail "Please specify an app to run the command on"
   verify_app_name "$APP"
 
+  if [[ ! -f "$NGINX_CONF_D/maintenance.conf" ]]; then
+    dokku_log_info1 "Maintenance mode already disabled"
+    return
+  fi
+
   dokku_log_info1 "Disabling maintenance mode for $APP..."
   [[ -f "$NGINX_CONF_D/maintenance.conf" ]] && rm "$NGINX_CONF_D/maintenance.conf"
   restart_nginx
@@ -138,6 +143,11 @@ cmd-maintenance-enable() {
 
   [[ -z "$APP" ]] && dokku_log_fail "Please specify an app to run the command on"
   verify_app_name "$APP"
+
+  if [[ -f "$NGINX_CONF_D/maintenance.conf" ]]; then
+    dokku_log_info1 "Maintenance mode already enabled"
+    return
+  fi
 
   dokku_log_info1 "Enabling maintenance mode for $APP..."
   [[ -d "$NGINX_CONF_D" ]] || mkdir "$NGINX_CONF_D"
