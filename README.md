@@ -21,8 +21,7 @@ $ dokku help
     maintenance <app>                               Display the current maintenance status of app
     maintenance:custom-page <app>                   Imports a tarball from stdin; should contain at least maintenance.html
     maintenance:disable <app>                       Disable app maintenance mode
-    maintenance:enable <app>                        Enable app
-     maintenance mode
+    maintenance:enable <app>                        Enable app maintenance mode
 ```
 
 ## usage
