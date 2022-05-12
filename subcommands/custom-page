@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
 source "$PLUGIN_BASE_PATH/common/functions"
-set -eo pipefail; [[ $DOKKU_TRACE ]] && set -x
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
 
 maintenance-custom-page-cmd() {
   declare desc="imports a tarball from stdin; should contain at least maintenance.html"
@@ -15,7 +16,7 @@ maintenance-custom-page-cmd() {
   TEMP_DIR=$(mktemp -d)
   trap 'rm -rf "$TEMP_DIR" > /dev/null' RETURN INT TERM EXIT
 
-  pushd "$TEMP_DIR" > /dev/null
+  pushd "$TEMP_DIR" >/dev/null
   tar xvf - <&0
   [[ ! -f "$TEMP_DIR/maintenance.html" ]] && dokku_log_fail "Tar archive missing maintenance.html"
   mkdir -p "$DOKKU_ROOT/$APP/maintenance"
