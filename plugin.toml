@@ -1,4 +1,4 @@
 [plugin]
 description = "Maintenance mode for apps"
-version = "0.5.1"
+version = "0.6.0"
 [plugin.config]
