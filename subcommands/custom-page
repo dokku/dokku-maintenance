@@ -3,4 +3,4 @@ source "$PLUGIN_AVAILABLE_PATH/maintenance/command-functions"
 set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x
 
-maintenance-custom-page-cmd "$@"
+cmd-maintenance-custom-page "$@"
