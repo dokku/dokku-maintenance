@@ -18,10 +18,11 @@ sudo dokku plugin:install https://github.com/dokku/dokku-maintenance.git mainten
 
 ```
 $ dokku help
-    maintenance <app>                               Display the current maintenance status of app
+    maintenance <app>                               Display the list of commands
     maintenance:custom-page <app>                   Imports a tarball from stdin; should contain at least maintenance.html
     maintenance:disable <app>                       Disable app maintenance mode
     maintenance:enable <app>                        Enable app maintenance mode
+    maintenance:report [<app>] [<flag>]             Displays a maintenance report for one or more apps
 ```
 
 ## usage
@@ -29,8 +30,8 @@ $ dokku help
 Check maintenance status of my-app
 
 ```
-# dokku maintenance my-app            # Server side
-$ ssh dokku@server maintenance my-app # Client side
+# dokku maintenance:report my-app            # Server side
+$ ssh dokku@server maintenance:report my-app # Client side
 
 -----> Maintenance status of my-app:
        off
