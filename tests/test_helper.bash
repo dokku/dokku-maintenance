@@ -6,6 +6,13 @@
 # files under /home/dokku/<app>/ without elevation).
 SUDO="${SUDO:-}"
 
+# Reach the Pebble supporting services via 172.17.0.1 (the docker bridge
+# gateway, which is a real interface on the host as well). Only the
+# letsencrypt integration test uses these.
+CHALLTESTSRV_URL="${CHALLTESTSRV_URL:-http://172.17.0.1:8055}"
+TEST_DOMAIN_BASE="${TEST_DOMAIN_BASE:-dokku.test}"
+DEFAULT_A_TARGET="${DEFAULT_A_TARGET:-172.17.0.1}"
+
 new_app_name() {
   echo "maintest-${BATS_TEST_NUMBER:-0}-$(date +%s)-${RANDOM}"
 }
@@ -47,4 +54,93 @@ make_tarball() {
     echo "$content" >"${stage}/${name}"
   done
   tar -cf "$tarball" -C "$stage" .
+}
+
+# --- letsencrypt integration helpers ---------------------------------------
+# Used only by maintenance_letsencrypt.bats. Ported from dokku-letsencrypt's
+# test suite so the maintenance fix can be proven against a real Pebble ACME
+# server while maintenance mode is on.
+
+# Skip the calling test unless the full Pebble stack and the letsencrypt plugin
+# are available (e.g. outside the Linux CI stack).
+ensure_letsencrypt_stack() {
+  command -v curl >/dev/null 2>&1 || skip "curl is required for the letsencrypt integration test"
+  dokku plugin:installed letsencrypt >/dev/null 2>&1 || skip "letsencrypt plugin is not installed"
+  curl -s -o /dev/null --max-time 5 "${CHALLTESTSRV_URL}/" ||
+    skip "pebble-challtestsrv is not reachable at ${CHALLTESTSRV_URL}"
+}
+
+set_domain() {
+  local app="$1" domain="$2"
+  dokku domains:set "$app" "$domain"
+}
+
+add_domain() {
+  local app="$1" domain="$2"
+  dokku domains:add "$app" "$domain"
+}
+
+register_a_record() {
+  local host="$1" target="${2:-$DEFAULT_A_TARGET}"
+  case "$host" in
+    *.) ;;
+    *) host="${host}." ;;
+  esac
+  curl -sf -X POST -H 'Content-Type: application/json' \
+    -d "{\"host\":\"${host}\",\"addresses\":[\"${target}\"]}" \
+    "${CHALLTESTSRV_URL}/add-a" >/dev/null
+}
+
+clear_a_record() {
+  local host="$1"
+  case "$host" in
+    *.) ;;
+    *) host="${host}." ;;
+  esac
+  curl -sf -X POST -H 'Content-Type: application/json' \
+    -d "{\"host\":\"${host}\"}" \
+    "${CHALLTESTSRV_URL}/clear-a" >/dev/null || true
+}
+
+cert_path_for() {
+  local app="$1"
+  echo "/home/dokku/${app}/tls/server.letsencrypt.crt"
+}
+
+cert_issuer() {
+  $SUDO openssl x509 -in "$1" -noout -issuer
+}
+
+cert_san() {
+  $SUDO openssl x509 -in "$1" -noout -text | awk '/X509v3 Subject Alternative Name/{getline; print}'
+}
+
+assert_cert_exists() {
+  local app="$1"
+  local crt
+  crt="$(cert_path_for "$app")"
+  $SUDO test -f "$crt" || {
+    echo "expected cert at $crt" >&2
+    return 1
+  }
+}
+
+assert_cert_issued_by_pebble() {
+  local app="$1"
+  local crt
+  crt="$(cert_path_for "$app")"
+  cert_issuer "$crt" | grep -qi pebble || {
+    echo "expected Pebble issuer; got: $(cert_issuer "$crt")" >&2
+    return 1
+  }
+}
+
+assert_cert_san_contains() {
+  local app="$1" needle="$2"
+  local crt
+  crt="$(cert_path_for "$app")"
+  cert_san "$crt" | grep -qF "$needle" || {
+    echo "expected SAN to contain '$needle'; got: $(cert_san "$crt")" >&2
+    return 1
+  }
 }

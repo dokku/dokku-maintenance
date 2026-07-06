@@ -2,6 +2,8 @@
 
 The bats suite exercises the plugin end-to-end inside a docker-compose stack with a derived dokku image. Tests run inside the dokku container so they call `dokku ...` directly.
 
+Most of the suite is self-contained, but `maintenance_letsencrypt.bats` proves the Let's Encrypt fix (issue #10) against a real ACME server: the stack also runs [pebble](https://github.com/letsencrypt/pebble) and [pebble-challtestsrv](https://github.com/letsencrypt/pebble/tree/main/cmd/pebble-challtestsrv), and installs [dokku-letsencrypt](https://github.com/dokku/dokku-letsencrypt) (pinned to `0.25.0`) alongside the maintenance plugin. Those services use `network_mode: host` so the lego container the plugin launches can reach them at `172.17.0.1`, which makes the full suite **Linux only**. `maintenance_letsencrypt.bats` skips itself when that stack is unavailable.
+
 ## Running the suite locally
 
 From the repo root:
@@ -10,18 +12,18 @@ From the repo root:
 make test
 ```
 
-That runs `lint` and `unit-tests` against an already-running stack; run `make setup` first to bring up the stack and install the plugin. Stack containers stay up between runs so subsequent invocations are fast. Use `make clean` to tear everything down.
+That runs `lint` and `unit-tests` against an already-running stack; run `make setup` first to bring up the stack and install the plugins. Stack containers stay up between runs so subsequent invocations are fast. Use `make clean` to tear everything down and remove the host-side state directory at `tmp/maintest-host`.
 
 Useful targets:
 
 | Target | What it does |
 |--------|--------------|
-| `make setup` | Bring up the compose stack, install the plugin into the dokku container. |
+| `make setup` | Build the test lego image, bring up the compose stack (dokku + Pebble), install the maintenance and letsencrypt plugins into the dokku container. |
 | `make lint` | Run shellcheck against the plugin's bash files. |
 | `make unit-tests` | Run the bats suite. |
 | `make test` | `lint` then `unit-tests`. |
-| `make logs` | Tail the last 200 lines of compose logs. |
-| `make clean` | `docker compose down -v`. |
+| `make logs` | Tail the last 200 lines of compose logs across all services. |
+| `make clean` | `docker compose down -v` and remove the host-side state dir at `tmp/maintest-host`. |
 
 ## Scoping a run to a single test
 
@@ -62,8 +64,8 @@ make unit-tests-native
 
 | Target | What it does |
 |--------|--------------|
-| `make setup-native` | Bootstrap dokku via the upstream `bootstrap.sh`, install the plugin natively. |
+| `make setup-native` | Build the lego image, bring up the Pebble compose services (no dokku container), bootstrap dokku via the upstream `bootstrap.sh`, install the maintenance and letsencrypt plugins natively. |
 | `make unit-tests-native` | Run the bats suite directly on the host against the native dokku install. Same `UNIT_TESTS` / `UNIT_TESTS_FILTER` knobs as `unit-tests`. |
-| `make clean-native` | Tear down any compose containers. The native dokku install itself is left in place. |
+| `make clean-native` | `docker compose down -v` for the Pebble services. The native dokku install itself is left in place. |
 
 `setup-native` honors `DOKKU_TAG` to install a specific Dokku release instead of master.

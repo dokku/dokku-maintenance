@@ -78,10 +78,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7.0.0
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
       - name: Install bats
         run: sudo apt-get update && sudo apt-get install -y bats
 
-      - name: Bootstrap dokku
+      - name: Bootstrap dokku and bring up Pebble services
         run: make setup-native
 
       - name: Run unit tests
@@ -91,6 +94,7 @@ jobs:
         if: failure()
         run: |
           mkdir -p tmp
+          make logs > tmp/compose-logs-native.txt || true
           {
             echo "### dokku --version"
             dokku --version || true
@@ -107,5 +111,11 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: native-diag-dokku-${{ matrix.dokku_version }}
-          path: tmp/native-diag.txt
+          path: |
+            tmp/compose-logs-native.txt
+            tmp/native-diag.txt
           if-no-files-found: ignore
+
+      - name: Tear down the Pebble services
+        if: always()
+        run: make clean-native

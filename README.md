@@ -70,3 +70,7 @@ image.jpg
 ```
 
 You have to provide at least a maintenance.html page but you can provide images, css, custom font, etc. if you want. Just write absolute paths in your html and not relative ones (so to serve image.jpg which is at the same level than your maintenance.html page you’ll write “/image.jpg” instead of “./image.jpg” or “image.jpg”).
+
+## let's encrypt
+
+Maintenance mode leaves the `/.well-known/acme-challenge` path untouched, so [dokku-letsencrypt](https://github.com/dokku/dokku-letsencrypt) can still complete the ACME HTTP-01 challenge. Certificate issuance and renewal continue to work while an app is in maintenance mode.
