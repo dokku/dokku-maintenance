@@ -71,6 +71,10 @@ image.jpg
 
 You have to provide at least a maintenance.html page but you can provide images, css, custom font, etc. if you want. Just write absolute paths in your html and not relative ones (so to serve image.jpg which is at the same level than your maintenance.html page you’ll write “/image.jpg” instead of “./image.jpg” or “image.jpg”).
 
+## maintenance page storage
+
+The maintenance page and any custom assets are stored under nginx's docroot at `/var/www/dokku-maintenance/<app>` and served from there. Earlier versions served them out of `/home/dokku/<app>`, which nginx workers cannot read on hardened installs where `/home/dokku` is `0700`, producing a `403` instead of the maintenance page. Upgrading the plugin automatically relocates the assets for any app that already has maintenance mode enabled, so no manual action is required.
+
 ## let's encrypt
 
 Maintenance mode leaves the `/.well-known/acme-challenge` path untouched, so [dokku-letsencrypt](https://github.com/dokku/dokku-letsencrypt) can still complete the ACME HTTP-01 challenge. Certificate issuance and renewal continue to work while an app is in maintenance mode.

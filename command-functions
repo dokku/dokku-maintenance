@@ -84,10 +84,11 @@ cmd-maintenance-custom-page() {
   pushd "$TEMP_DIR" >/dev/null
   tar xvf - <&0
   [[ ! -f "$TEMP_DIR/maintenance.html" ]] && dokku_log_fail "Tar archive missing maintenance.html"
-  mkdir -p "$DOKKU_ROOT/$APP/maintenance"
+  mkdir -p "$MAINTENANCE_DATA_ROOT/$APP"
 
   # shellcheck disable=SC2086
-  mv $TEMP_DIR/* "$DOKKU_ROOT/$APP/maintenance"
+  mv $TEMP_DIR/* "$MAINTENANCE_DATA_ROOT/$APP"
+  fn-maintenance-fix-permissions "$MAINTENANCE_DATA_ROOT/$APP"
   popd &>/dev/null || pushd "/tmp" >/dev/null
   dokku_log_verbose "Done"
 }
@@ -139,7 +140,7 @@ cmd-maintenance-enable() {
 
   declare APP="$1"
   local NGINX_CONF_D="$DOKKU_ROOT/$APP/nginx.conf.d"
-  local MAINTENANCE_APP_D="$DOKKU_ROOT/$APP/maintenance"
+  local MAINTENANCE_APP_D="$MAINTENANCE_DATA_ROOT/$APP"
 
   [[ -z "$APP" ]] && dokku_log_fail "Please specify an app to run the command on"
   verify_app_name "$APP"
@@ -153,12 +154,13 @@ cmd-maintenance-enable() {
   [[ -d "$NGINX_CONF_D" ]] || mkdir "$NGINX_CONF_D"
 
   if [[ ! -d "$MAINTENANCE_APP_D" ]]; then
-    mkdir "$MAINTENANCE_APP_D"
+    mkdir -p "$MAINTENANCE_APP_D"
     cp "$MAINTENANCE_PLUGIN_ROOT/templates/maintenance.html" "$MAINTENANCE_APP_D"
   fi
+  fn-maintenance-fix-permissions "$MAINTENANCE_APP_D"
 
   cp "$MAINTENANCE_PLUGIN_ROOT/templates/maintenance.conf" "$NGINX_CONF_D"
-  sed -i "s,{APP_ROOT},$DOKKU_ROOT/$APP," "$NGINX_CONF_D/maintenance.conf"
+  sed -i "s,{MAINTENANCE_ROOT},$MAINTENANCE_APP_D," "$NGINX_CONF_D/maintenance.conf"
   validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
   dokku_log_verbose "Done"
 }

@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
+source "$PLUGIN_AVAILABLE_PATH/maintenance/config"
+source "$PLUGIN_AVAILABLE_PATH/maintenance/internal-functions"
+source "$PLUGIN_CORE_AVAILABLE_PATH/nginx-vhosts/functions"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+fn-maintenance-install() {
+  declare desc="relocate maintenance assets into nginx's docroot on install/upgrade (issue #19)"
+
+  # /var/www is root-owned, so the base docroot must be created here (the install
+  # trigger runs as root) and chowned to dokku, letting later (dokku-user)
+  # enable/custom-page calls create per-app subdirs under it. World bits keep it
+  # nginx-readable.
+  mkdir -p "$MAINTENANCE_DATA_ROOT"
+  chown dokku:dokku "$MAINTENANCE_DATA_ROOT"
+  chmod 755 "$MAINTENANCE_DATA_ROOT"
+
+  # Iterate EVERY app, unfiltered. dokku_apps "false" returns the full app list -
+  # the "false" arg does not filter the set, it only suppresses the "you haven't
+  # deployed any apps" error so a fresh dokku with zero apps does not abort the
+  # install trigger. (Same idiom as core's nginx-vhosts/install migration.)
+  local app migrated=false
+  for app in $(dokku_apps "false" 2>/dev/null); do
+    if fn-maintenance-migrate-app "$app"; then
+      dokku_log_info1 "Relocated maintenance assets for $app"
+      chown -R dokku:dokku "$MAINTENANCE_DATA_ROOT/$app"
+      migrated=true
+      APP="$app" restart_nginx "$app" || true # reload; never abort install
+    fi
+  done
+
+  [[ "$migrated" == "true" ]] && dokku_log_verbose "Maintenance asset migration complete"
+  return 0
+}
+
+fn-maintenance-install "$@"

@@ -29,8 +29,28 @@ teardown() {
   [[ "$output" == *"Enabling maintenance mode for $APP"* ]]
   $SUDO test -f "$(maintenance_conf_path "$APP")"
   $SUDO test -f "$(maintenance_page_path "$APP")"
-  $SUDO grep -q "/home/dokku/$APP/maintenance" "$(maintenance_conf_path "$APP")"
-  ! $SUDO grep -q '{APP_ROOT}' "$(maintenance_conf_path "$APP")"
+  $SUDO grep -q "$(maintenance_app_dir "$APP")" "$(maintenance_conf_path "$APP")"
+  ! $SUDO grep -q '{MAINTENANCE_ROOT}' "$(maintenance_conf_path "$APP")"
+}
+
+@test "maintenance:enable serves the page from an nginx-readable location (issue #19)" {
+  run dokku maintenance:enable "$APP"
+  [ "$status" -eq 0 ]
+  # The 403 was caused by nginx workers (www-data/nginx) being unable to
+  # traverse /home/dokku (0700 on hardened installs) to read the page. The fix
+  # serves it from nginx's docroot instead, so the assets must live outside
+  # /home/dokku and be world-traversable/readable.
+  local page dir dperms pperms
+  page="$(maintenance_page_path "$APP")"
+  dir="$(maintenance_app_dir "$APP")"
+  [[ "$page" != /home/dokku/* ]]
+  # In the `-rwxrwxrwx` string from `stat -c %A`, index 7 is other-read and
+  # index 9 is other-execute. The dir must be world-traversable (o+x) and the
+  # page world-readable (o+r) for the nginx worker to serve it.
+  dperms="$($SUDO stat -c '%A' "$dir")"
+  pperms="$($SUDO stat -c '%A' "$page")"
+  [ "${dperms:9:1}" = "x" ]
+  [ "${pperms:7:1}" = "r" ]
 }
 
 @test "maintenance:enable carves the acme-challenge path out of the catch-all" {
