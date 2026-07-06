@@ -22,7 +22,7 @@ $ dokku help
     maintenance:custom-page <app>                   Imports a tarball from stdin; should contain at least maintenance.html
     maintenance:disable <app>                       Disable app maintenance mode
     maintenance:enable <app>                        Enable app maintenance mode
-    maintenance:report [<app>] [<flag>]             Displays a maintenance report for one or more apps
+    maintenance:report [<app>] [<flag>] [--format stdout|json]   Displays a maintenance report for one or more apps
 ```
 
 ## usage
@@ -35,6 +35,15 @@ $ ssh dokku@server maintenance:report my-app # Client side
 
 -----> Maintenance status of my-app:
        off
+```
+
+The report can also be emitted as JSON for programmatic use:
+
+```
+# dokku maintenance:report my-app --format json            # Server side
+$ ssh dokku@server maintenance:report my-app --format json # Client side
+
+{"enabled":"false"}
 ```
 
 Enable maintenance mode for my-app

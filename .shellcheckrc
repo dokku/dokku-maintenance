@@ -8,3 +8,5 @@ disable=SC2068
 disable=SC2086
 # SC2155: declare-and-assign is the established style here
 disable=SC2155
+# SC2178: bash nameref via `local -n` is intentionally an array reference
+disable=SC2178
