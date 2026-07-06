@@ -33,6 +33,16 @@ teardown() {
   ! $SUDO grep -q '{APP_ROOT}' "$(maintenance_conf_path "$APP")"
 }
 
+@test "maintenance:enable carves the acme-challenge path out of the catch-all" {
+  run dokku maintenance:enable "$APP"
+  [ "$status" -eq 0 ]
+  # The catch-all must skip the letsencrypt HTTP-01 path so cert issuance and
+  # renewal keep working while maintenance mode is on (issue #10).
+  $SUDO grep -q 'acme-challenge' "$(maintenance_conf_path "$APP")"
+  # The bare catch-all that swallowed every request must be gone.
+  ! $SUDO grep -qE 'location[[:space:]]+~\*[[:space:]]+\^\(\.\*\)\$' "$(maintenance_conf_path "$APP")"
+}
+
 @test "maintenance:enable is idempotent" {
   dokku maintenance:enable "$APP"
   run dokku maintenance:enable "$APP"

@@ -1,4 +1,5 @@
 DOKKU_VERSION ?= latest
+MAINTEST_HOST_DIR ?= $(CURDIR)/tmp/maintest-host
 
 # Optional path or filename relative to /plugin-src/tests passed to bats, e.g.
 # `make unit-tests UNIT_TESTS=maintenance_enable.bats`. Defaults to the whole
@@ -11,20 +12,25 @@ ifneq ($(UNIT_TESTS_FILTER),)
 BATS_FLAGS += --filter '$(UNIT_TESTS_FILTER)'
 endif
 
-COMPOSE := DOKKU_VERSION=$(DOKKU_VERSION) docker compose -f tests/docker-compose.yml
+COMPOSE := DOKKU_VERSION=$(DOKKU_VERSION) MAINTEST_HOST_DIR=$(MAINTEST_HOST_DIR) docker compose -f tests/docker-compose.yml
 COMPOSE_COMPOSE_MODE := $(COMPOSE) --profile compose-mode
 COMPOSE_EXEC_DOKKU := $(COMPOSE) exec -T dokku
 
 PLUGIN_BASH_FILES := command-functions commands config help-functions internal-functions report \
 	$(wildcard subcommands/*) \
-	tests/setup.sh tests/setup-native.sh tests/test_helper.bash
+	tests/setup.sh tests/setup-native.sh tests/test_helper.bash \
+	tests/lego/challtestsrv-dns.sh tests/pebble/init-cert.sh
 
-.PHONY: setup build-stack wait-stack install-plugin test lint unit-tests clean logs \
-	setup-native install-plugin-native unit-tests-native clean-native
+.PHONY: setup build-lego build-stack wait-stack install-plugin test lint unit-tests clean logs \
+	setup-native bring-up-services install-plugin-native unit-tests-native clean-native
 
-setup: build-stack wait-stack install-plugin
+setup: build-lego build-stack wait-stack install-plugin
+
+build-lego:
+	docker build -t maintest-lego:latest tests/lego
 
 build-stack:
+	mkdir -p $(MAINTEST_HOST_DIR)
 	$(COMPOSE_COMPOSE_MODE) build
 	$(COMPOSE_COMPOSE_MODE) up -d
 
@@ -47,10 +53,16 @@ logs:
 
 clean:
 	$(COMPOSE_COMPOSE_MODE) down -v --remove-orphans
+	# The host-side state dir contains files owned by root inside the
+	# dokku container, which the host user cannot rm without elevation.
+	rm -rf $(MAINTEST_HOST_DIR) 2>/dev/null || sudo rm -rf $(MAINTEST_HOST_DIR)
 
-# --- Native mode: dokku installed on the host ---
+# --- Native mode: dokku installed on the host, supporting services in compose ---
 
-setup-native: install-plugin-native
+setup-native: build-lego bring-up-services install-plugin-native
+
+bring-up-services:
+	$(COMPOSE) up -d --wait
 
 install-plugin-native:
 	bash tests/setup-native.sh
