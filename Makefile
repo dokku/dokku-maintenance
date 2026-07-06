@@ -1,41 +1,62 @@
-shellcheck:
-ifeq ($(shell shellcheck > /dev/null 2>&1 ; echo $$?),127)
-ifeq ($(shell uname),Darwin)
-	brew install shellcheck
-else
-	sudo add-apt-repository 'deb http://archive.ubuntu.com/ubuntu trusty-backports main restricted universe multiverse'
-	sudo apt-get update -qq && sudo apt-get install -qq -y shellcheck
-endif
+DOKKU_VERSION ?= latest
+
+# Optional path or filename relative to /plugin-src/tests passed to bats, e.g.
+# `make unit-tests UNIT_TESTS=maintenance_enable.bats`. Defaults to the whole
+# tests directory.
+UNIT_TESTS ?= .
+# Optional regex passed to bats --filter to scope down to a single test name.
+UNIT_TESTS_FILTER ?=
+BATS_FLAGS := --timing --print-output-on-failure
+ifneq ($(UNIT_TESTS_FILTER),)
+BATS_FLAGS += --filter '$(UNIT_TESTS_FILTER)'
 endif
 
-bats:
-ifeq ($(shell bats > /dev/null 2>&1 ; echo $$?),127)
-ifeq ($(shell uname),Darwin)
-	git clone https://github.com/sstephenson/bats.git /tmp/bats
-	cd /tmp/bats && sudo ./install.sh /usr/local
-	rm -rf /tmp/bats
-else
-	sudo add-apt-repository ppa:duggan/bats --yes
-	sudo apt-get update -qq && sudo apt-get install -qq -y bats
-endif
-endif
+COMPOSE := DOKKU_VERSION=$(DOKKU_VERSION) docker compose -f tests/docker-compose.yml
+COMPOSE_COMPOSE_MODE := $(COMPOSE) --profile compose-mode
+COMPOSE_EXEC_DOKKU := $(COMPOSE) exec -T dokku
 
-ci-dependencies: shellcheck bats
+PLUGIN_BASH_FILES := command-functions commands config help-functions internal-functions report \
+	$(wildcard subcommands/*) \
+	tests/setup.sh tests/setup-native.sh tests/test_helper.bash
+
+.PHONY: setup build-stack wait-stack install-plugin test lint unit-tests clean logs \
+	setup-native install-plugin-native unit-tests-native clean-native
+
+setup: build-stack wait-stack install-plugin
+
+build-stack:
+	$(COMPOSE_COMPOSE_MODE) build
+	$(COMPOSE_COMPOSE_MODE) up -d
+
+wait-stack:
+	$(COMPOSE_COMPOSE_MODE) up -d --wait
+
+install-plugin:
+	$(COMPOSE_EXEC_DOKKU) bash /plugin-src/tests/setup.sh
 
 lint:
-	# these are disabled due to their expansive existence in the codebase. we should clean it up though
-	# SC2046: Quote this to prevent word splitting. - https://github.com/koalaman/shellcheck/wiki/SC2046
-	# SC2068: Double quote array expansions, otherwise they're like $* and break on spaces. - https://github.com/koalaman/shellcheck/wiki/SC2068
-	# SC2086: Double quote to prevent globbing and word splitting - https://github.com/koalaman/shellcheck/wiki/SC2086
-	@echo linting...
-	@$(QUIET) find ./ -maxdepth 1 -not -path '*/\.*' | xargs file | egrep "shell|bash" | awk '{ print $$1 }' | sed 's/://g' | xargs shellcheck -e SC2046,SC2068,SC2086
+	$(COMPOSE_EXEC_DOKKU) shellcheck $(addprefix /plugin-src/, $(PLUGIN_BASH_FILES))
 
 unit-tests:
-	@echo running unit tests...
-	@$(QUIET) bats tests
+	$(COMPOSE_EXEC_DOKKU) bats $(BATS_FLAGS) /plugin-src/tests/$(UNIT_TESTS)
 
-setup:
-	bash tests/setup.sh
-	$(MAKE) ci-dependencies
+test: lint unit-tests
 
-test: setup lint unit-tests
+logs:
+	$(COMPOSE) logs --no-color --tail=200
+
+clean:
+	$(COMPOSE_COMPOSE_MODE) down -v --remove-orphans
+
+# --- Native mode: dokku installed on the host ---
+
+setup-native: install-plugin-native
+
+install-plugin-native:
+	bash tests/setup-native.sh
+
+unit-tests-native:
+	SUDO=sudo bats $(BATS_FLAGS) tests/$(UNIT_TESTS)
+
+clean-native:
+	$(COMPOSE_COMPOSE_MODE) down -v --remove-orphans

@@ -1,49 +1,75 @@
 #!/usr/bin/env bats
-load test_helper
 
-create_bad_archive() {
-  touch "$DOKKU_ROOT/my_app/bad.html"
-  tar cf "$DOKKU_ROOT/my_app/bad.tar" -C "$DOKKU_ROOT/my_app" bad.html
-}
-
-create_good_archive() {
-  touch "$DOKKU_ROOT/my_app/maintenance.html"
-  tar cf "$DOKKU_ROOT/my_app/good.tar" -C "$DOKKU_ROOT/my_app" maintenance.html
-}
+load 'test_helper'
 
 setup() {
-  dokku apps:create my_app >&2
+  APP="$(new_app_name)"
+  create_app "$APP"
 }
 
 teardown() {
-  rm -rf "$DOKKU_ROOT/my_app"
+  cleanup_app "$APP"
 }
 
-@test "(maintenance:custom-page) error when there are no arguments" {
+@test "maintenance:custom-page fails when no app is specified" {
   run dokku maintenance:custom-page
-  assert_contains "${lines[*]}" "Please specify an app to run the command on"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Please specify an app to run the command on"* ]]
 }
 
-@test "(maintenance:custom-page) error when app does not exist" {
-  run dokku maintenance:custom-page non_existing_app
-  assert_contains "${lines[*]}" "App non_existing_app does not exist"
+@test "maintenance:custom-page fails for a nonexistent app" {
+  run dokku maintenance:custom-page nonexistent-app
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"App nonexistent-app does not exist"* ]]
 }
 
-@test "(maintenance:custom-page) error when tar archive not provided" {
-  run dokku maintenance:custom-page my_app
-  assert_contains "${lines[*]}" "archive containing at least maintenance.html expected on stdin"
+@test "maintenance:custom-page fails when stdin is not a tar archive" {
+  run dokku maintenance:custom-page "$APP" </dev/null
+  [ "$status" -ne 0 ]
+  ! $SUDO test -f "$(maintenance_page_path "$APP")"
 }
 
-@test "(maintenance:custom-page) error when tar archive not containing maintenance.html" {
-  create_bad_archive
-  run dokku maintenance:custom-page my_app < "$DOKKU_ROOT/my_app/bad.tar"
-  assert_contains "${lines[*]}" "archive missing maintenance.html"
+@test "maintenance:custom-page fails when the tarball lacks maintenance.html" {
+  local tarball="${BATS_TEST_TMPDIR}/bad.tar"
+  make_tarball "$tarball" "bad.html=<html>bad</html>"
+  run dokku maintenance:custom-page "$APP" <"$tarball"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"missing maintenance.html"* ]]
+  ! $SUDO test -f "$(maintenance_page_path "$APP")"
 }
 
-@test "(maintenance:custom-page) success" {
-  create_good_archive
-  run dokku maintenance:custom-page my_app < "$DOKKU_ROOT/my_app/good.tar"
-  assert_exists "$DOKKU_ROOT/my_app/maintenance/maintenance.html"
-  assert_success
+@test "maintenance:custom-page imports a tarball containing maintenance.html" {
+  local tarball="${BATS_TEST_TMPDIR}/good.tar"
+  make_tarball "$tarball" "maintenance.html=maintest-marker-page"
+  run dokku maintenance:custom-page "$APP" <"$tarball"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Importing custom maintenance page"* ]]
+  $SUDO grep -q "maintest-marker-page" "$(maintenance_page_path "$APP")"
 }
 
+@test "maintenance:custom-page imports extra files alongside maintenance.html" {
+  local tarball="${BATS_TEST_TMPDIR}/extra.tar"
+  make_tarball "$tarball" "maintenance.html=maintest-marker-page" "style.css=body {}"
+  run dokku maintenance:custom-page "$APP" <"$tarball"
+  [ "$status" -eq 0 ]
+  $SUDO test -f "$(maintenance_page_path "$APP")"
+  $SUDO test -f "/home/dokku/$APP/maintenance/style.css"
+}
+
+@test "maintenance:enable preserves a previously imported custom page" {
+  local tarball="${BATS_TEST_TMPDIR}/custom.tar"
+  make_tarball "$tarball" "maintenance.html=maintest-marker-page"
+  dokku maintenance:custom-page "$APP" <"$tarball"
+  run dokku maintenance:enable "$APP"
+  [ "$status" -eq 0 ]
+  $SUDO grep -q "maintest-marker-page" "$(maintenance_page_path "$APP")"
+}
+
+@test "maintenance:custom-page replaces the default page after enable" {
+  dokku maintenance:enable "$APP"
+  local tarball="${BATS_TEST_TMPDIR}/replace.tar"
+  make_tarball "$tarball" "maintenance.html=maintest-marker-page"
+  run dokku maintenance:custom-page "$APP" <"$tarball"
+  [ "$status" -eq 0 ]
+  $SUDO grep -q "maintest-marker-page" "$(maintenance_page_path "$APP")"
+}
