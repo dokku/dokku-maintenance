@@ -4,6 +4,11 @@ export PLUGIN_VARIABLE="MAINTENANCE"
 export PLUGIN_BASE_PATH="$PLUGIN_PATH"
 export MAINTENANCE_PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Maintenance assets are served out of nginx's docroot rather than
+# /home/dokku/<app>, which nginx workers cannot traverse on hardened installs
+# (see issue #19). Overridable so the test suite can point it elsewhere.
+export MAINTENANCE_DATA_ROOT="${MAINTENANCE_DATA_ROOT:-/var/www/dokku-maintenance}"
+
 if [[ -n $DOKKU_API_VERSION ]]; then
   export PLUGIN_BASE_PATH="$PLUGIN_ENABLED_PATH"
 fi

@@ -34,9 +34,25 @@ maintenance_conf_path() {
   echo "/home/dokku/${app}/nginx.conf.d/maintenance.conf"
 }
 
+maintenance_data_root() {
+  echo "/var/www/dokku-maintenance"
+}
+
+maintenance_app_dir() {
+  local app="$1"
+  echo "$(maintenance_data_root)/${app}"
+}
+
 maintenance_page_path() {
   local app="$1"
-  echo "/home/dokku/${app}/maintenance/maintenance.html"
+  echo "$(maintenance_app_dir "$app")/maintenance.html"
+}
+
+# Legacy (pre-issue-#19) asset location under /home/dokku, used by the migration
+# test to stage a pre-upgrade layout.
+maintenance_legacy_dir() {
+  local app="$1"
+  echo "/home/dokku/${app}/maintenance"
 }
 
 # Builds a tarball at $1 containing the remaining arguments, given as

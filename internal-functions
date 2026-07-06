@@ -15,3 +15,41 @@ fn-maintenance-enabled() {
 
   echo "$enabled"
 }
+
+fn-maintenance-fix-permissions() {
+  declare desc="ensure nginx workers can traverse and read the maintenance assets"
+  declare MAINTENANCE_APP_D="$1"
+  # 0755 dirs, 0644 files so the nginx user (www-data/nginx) can read the page
+  # even when the install's umask is tighter than 022.
+  find "$MAINTENANCE_APP_D" -type d -exec chmod 755 {} +
+  find "$MAINTENANCE_APP_D" -type f -exec chmod 644 {} +
+  # On SELinux hosts, files moved into /var/www may keep a non-web context;
+  # restore the web-content context so nginx is allowed to read them.
+  if command -v restorecon >/dev/null 2>&1; then
+    restorecon -R "$MAINTENANCE_APP_D" >/dev/null 2>&1 || true
+  fi
+}
+
+fn-maintenance-migrate-app() {
+  declare desc="migrate a single app's maintenance assets to the data root (issue #19)"
+  declare APP="$1"
+  local legacy_dir="$DOKKU_ROOT/$APP/maintenance"
+  local new_dir="$MAINTENANCE_DATA_ROOT/$APP"
+  local conf="$DOKKU_ROOT/$APP/nginx.conf.d/maintenance.conf"
+
+  # Relocate the app's assets out of the legacy /home/dokku/<app>/maintenance dir
+  # into the nginx-readable data root and re-point its include if present.
+  # Idempotent: a no-op once the legacy dir is gone. Returns 0 if it migrated.
+  [[ -d "$legacy_dir" ]] || return 1
+
+  mkdir -p "$new_dir"
+  cp -a "$legacy_dir/." "$new_dir/"
+  fn-maintenance-fix-permissions "$new_dir"
+  [[ -f "$new_dir/maintenance.html" ]] && rm -rf "$legacy_dir"
+
+  if [[ -f "$conf" ]]; then
+    cp "$MAINTENANCE_PLUGIN_ROOT/templates/maintenance.conf" "$conf"
+    sed -i "s,{MAINTENANCE_ROOT},$new_dir," "$conf"
+  fi
+  return 0
+}

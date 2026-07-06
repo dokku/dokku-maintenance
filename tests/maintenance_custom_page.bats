@@ -53,7 +53,20 @@ teardown() {
   run dokku maintenance:custom-page "$APP" <"$tarball"
   [ "$status" -eq 0 ]
   $SUDO test -f "$(maintenance_page_path "$APP")"
-  $SUDO test -f "/home/dokku/$APP/maintenance/style.css"
+  $SUDO test -f "$(maintenance_app_dir "$APP")/style.css"
+}
+
+@test "maintenance:custom-page writes an nginx-readable page (issue #19)" {
+  local tarball="${BATS_TEST_TMPDIR}/perms.tar"
+  make_tarball "$tarball" "maintenance.html=maintest-marker-page"
+  run dokku maintenance:custom-page "$APP" <"$tarball"
+  [ "$status" -eq 0 ]
+  local page pperms
+  page="$(maintenance_page_path "$APP")"
+  [[ "$page" != /home/dokku/* ]]
+  # other-read bit (index 7 of the `-rwxrwxrwx` string) must be set
+  pperms="$($SUDO stat -c '%A' "$page")"
+  [ "${pperms:7:1}" = "r" ]
 }
 
 @test "maintenance:enable preserves a previously imported custom page" {
