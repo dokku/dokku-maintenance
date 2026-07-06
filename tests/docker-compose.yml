@@ -1,0 +1,16 @@
+name: maintest
+
+services:
+  dokku:
+    build:
+      context: ./dokku
+      args:
+        DOKKU_VERSION: ${DOKKU_VERSION:-latest}
+    container_name: maintest-dokku
+    restart: unless-stopped
+    profiles: ["compose-mode"]
+    environment:
+      - DOKKU_HOSTNAME=dokku.test
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ../:/plugin-src:ro

@@ -1,2 +1,2 @@
-tests/dokku
-tests/fixtures
+# test scratch space
+tmp/

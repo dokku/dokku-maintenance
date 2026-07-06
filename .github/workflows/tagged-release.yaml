@@ -1,0 +1,20 @@
+---
+name: "tagged-release"
+
+# yamllint disable-line rule:truthy
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  tagged-release:
+    name: tagged-release
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Release
+        uses: softprops/action-gh-release@v3.0.1
+        with:
+          generate_release_notes: true
+          make_latest: "true"

@@ -1,28 +1,25 @@
 #!/usr/bin/env bash
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test_helper.bash"
+# Run inside the dokku container. Installs the plugin from the bind-mounted
+# /plugin-src tree.
+set -euo pipefail
 
-BIN_STUBS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/bin"
+PLUGIN_SRC="${PLUGIN_SRC:-/plugin-src}"
 
-if [[ ! -d $DOKKU_ROOT ]]; then
-  git clone https://github.com/progrium/dokku.git "$DOKKU_ROOT" >/dev/null
+log() { echo "-----> $*"; }
+
+if dokku plugin:installed maintenance; then
+  log "maintenance plugin already installed; uninstalling first"
+  dokku plugin:uninstall maintenance
 fi
 
-cd "$DOKKU_ROOT"
-echo "Dokku version $DOKKU_VERSION"
-git checkout "$DOKKU_VERSION" >/dev/null
-cd -
+# `dokku plugin:install` derives the destination directory name from the
+# basename of the source URL, so stage the bind-mounted source at a path
+# whose basename is `maintenance` before installing.
+log "Staging plugin source at /tmp/maintenance"
+rm -rf /tmp/maintenance
+cp -r "${PLUGIN_SRC}" /tmp/maintenance
 
-source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
-rm -rf $DOKKU_ROOT/plugins/$PLUGIN_COMMAND_PREFIX
-mkdir -p $DOKKU_ROOT/plugins/$PLUGIN_COMMAND_PREFIX $DOKKU_ROOT/plugins/$PLUGIN_COMMAND_PREFIX/subcommands $DOKKU_ROOT/plugins/$PLUGIN_COMMAND_PREFIX/templates
-find ./ -maxdepth 1 -type f -exec cp '{}' $DOKKU_ROOT/plugins/$PLUGIN_COMMAND_PREFIX \;
-find ./subcommands -maxdepth 1 -type f -exec cp '{}' $DOKKU_ROOT/plugins/$PLUGIN_COMMAND_PREFIX/subcommands \;
-find ./templates -maxdepth 1 -type f -exec cp '{}' $DOKKU_ROOT/plugins/$PLUGIN_COMMAND_PREFIX/templates \;
-echo "$DOKKU_VERSION" >$DOKKU_ROOT/VERSION
+log "Installing maintenance plugin from /tmp/maintenance"
+dokku plugin:install "file:///tmp/maintenance"
 
-if [[ ! -f $BIN_STUBS/plugn ]]; then
-  wget -O- "$PLUGN_URL" | tar xzf - -C "$BIN_STUBS"
-  plugn init
-  find "$DOKKU_ROOT/plugins" -mindepth 1 -maxdepth 1 -type d ! -name 'available' ! -name 'enabled' -exec ln -s {} "$DOKKU_ROOT/plugins/available" \;
-  find "$DOKKU_ROOT/plugins" -mindepth 1 -maxdepth 1 -type d ! -name 'available' ! -name 'enabled' -exec ln -s {} "$DOKKU_ROOT/plugins/enabled" \;
-fi
+log "Setup complete"
