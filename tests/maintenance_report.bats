@@ -44,6 +44,30 @@ teardown() {
   [ "$output" = "true" ]
 }
 
+@test "maintenance:report --format json emits a json object" {
+  run dokku maintenance:report "$APP" --format json
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"enabled":"false"'* ]]
+
+  dokku maintenance:enable "$APP"
+
+  run dokku maintenance:report "$APP" --format json
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"enabled":"true"'* ]]
+}
+
+@test "maintenance:report --format json rejects an info flag" {
+  run dokku maintenance:report "$APP" --format json --maintenance-enabled
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"--format flag cannot be specified when specifying an info flag"* ]]
+}
+
+@test "maintenance:report --global --format json returns a json object" {
+  run dokku maintenance:report --global --format json
+  [ "$status" -eq 0 ]
+  [ "$output" = "{}" ]
+}
+
 @test "maintenance:report rejects an invalid flag" {
   run dokku maintenance:report "$APP" --invalid-flag
   [ "$status" -ne 0 ]
