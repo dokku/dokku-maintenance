@@ -65,7 +65,9 @@ make_tarball() {
 # are available (e.g. outside the Linux CI stack).
 ensure_letsencrypt_stack() {
   command -v curl >/dev/null 2>&1 || skip "curl is required for the letsencrypt integration test"
-  dokku plugin:installed letsencrypt >/dev/null 2>&1 || skip "letsencrypt plugin is not installed"
+  # `plugin:installed` is a root-only command, so query it through $SUDO (empty
+  # in compose mode where bats already runs as root, `sudo` in native mode).
+  $SUDO dokku plugin:installed letsencrypt >/dev/null 2>&1 || skip "letsencrypt plugin is not installed"
   curl -s -o /dev/null --max-time 5 "${CHALLTESTSRV_URL}/" ||
     skip "pebble-challtestsrv is not reachable at ${CHALLTESTSRV_URL}"
 }
