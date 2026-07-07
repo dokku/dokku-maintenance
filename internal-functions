@@ -54,6 +54,48 @@ fn-maintenance-migrate-app() {
   return 0
 }
 
+fn-maintenance-custom-page-checksum() {
+  declare desc="canonical sha256 digest over a custom page directory's files"
+  declare DIR="$1"
+  [[ -d "$DIR" ]] || return 0
+  # Digest = sha256 of a stream of "<sha256(contents)>  <relpath>\n" lines, one
+  # per regular file, with paths relative to DIR (no ./ prefix) and C-locale
+  # sorted. Hashing the extracted content (not the tar bytes, which embed mtimes
+  # and ordering) makes the value reproducible client-side, which is what lets
+  # tooling skip redundant uploads.
+  (
+    cd "$DIR" || exit 0
+    find . -type f | sed 's|^\./||' | LC_ALL=C sort | while IFS= read -r relpath; do
+      printf '%s  %s\n' "$(sha256sum "$relpath" | cut -d' ' -f1)" "$relpath"
+    done | sha256sum | cut -d' ' -f1
+  )
+}
+
+fn-maintenance-backfill-checksum() {
+  declare desc="record a checksum for a pre-existing custom page (issue #26 upgrade path)"
+  declare APP="$1"
+  local dir="$MAINTENANCE_DATA_ROOT/$APP"
+  local page="$dir/maintenance.html"
+  local template="$MAINTENANCE_PLUGIN_ROOT/templates/maintenance.html"
+
+  # Already recorded (custom-page ran post-upgrade, or a prior backfill) - nothing to do.
+  [[ -n "$(fn-plugin-property-get "$PLUGIN_COMMAND_PREFIX" "$APP" "custom-page-sha256" "")" ]] && return 0
+  # No stored page at all - nothing to record.
+  [[ -f "$page" ]] || return 1
+
+  # A page byte-identical to the bundled default with no extra assets is the
+  # default page written by `enable`, not a custom upload - leave it unrecorded.
+  local file_count
+  file_count="$(find "$dir" -type f | wc -l)"
+  if cmp -s "$page" "$template" && [[ "$file_count" -le 1 ]]; then
+    return 1
+  fi
+
+  fn-plugin-property-write "$PLUGIN_COMMAND_PREFIX" "$APP" "custom-page-sha256" \
+    "$(fn-maintenance-custom-page-checksum "$dir")"
+  return 0
+}
+
 fn-maintenance-report-parse-args() {
   declare desc="strip --format and --global from a report invocation"
   REPORT_FORMAT="stdout"

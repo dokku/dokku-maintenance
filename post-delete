@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+source "$PLUGIN_AVAILABLE_PATH/maintenance/config"
+source "$PLUGIN_CORE_AVAILABLE_PATH/common/property-functions"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+fn-maintenance-post-delete() {
+  declare desc="clean up an app's maintenance assets and properties on destroy"
+  declare APP="$1"
+  [[ -z "$APP" ]] && return 0
+  fn-plugin-property-destroy "$PLUGIN_COMMAND_PREFIX" "$APP" 2>/dev/null || true
+  rm -rf "${MAINTENANCE_DATA_ROOT:?}/$APP"
+  return 0
+}
+
+fn-maintenance-post-delete "$@"
