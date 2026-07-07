@@ -15,6 +15,14 @@ setup() {
     skip "dokku core plugins not available at $CORE_AVAILABLE_PATH"
   [[ -x "$CORE_AVAILABLE_PATH/common/prop" ]] ||
     skip "dokku prop helper not available at $CORE_AVAILABLE_PATH/common/prop"
+  # The prop helper chowns the config dir it creates to the dokku system user,
+  # which only root may do when the store lives in a scratch dir. The real
+  # install trigger runs as root, so exercise this sandboxed backfill only when
+  # the suite runs as root (compose mode). Native mode runs as the unprivileged
+  # runner and already covers the same property path end-to-end through the real
+  # `dokku maintenance:custom-page`/`report` commands.
+  [[ "$(id -u)" -eq 0 ]] ||
+    skip "backfill sandbox requires root to set up the dokku property store"
 
   SANDBOX_DATA_ROOT="${BATS_TEST_TMPDIR}/var-www"
   SANDBOX_LIB_ROOT="${BATS_TEST_TMPDIR}/var-lib-dokku"
