@@ -122,6 +122,70 @@ teardown() {
   [ "$output" = "$(page_checksum "$stage")" ]
 }
 
+@test "maintenance:custom-page-export fails when no app is specified" {
+  run dokku maintenance:custom-page-export
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Please specify an app to run the command on"* ]]
+}
+
+@test "maintenance:custom-page-export fails for a nonexistent app" {
+  run dokku maintenance:custom-page-export nonexistent-app
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"App nonexistent-app does not exist"* ]]
+}
+
+@test "maintenance:custom-page-export warns and emits an empty archive when no custom page is set" {
+  local out="${BATS_TEST_TMPDIR}/out.tar"
+  local err="${BATS_TEST_TMPDIR}/err.log"
+  # redirect the streams to files so the binary archive does not reach $output
+  run bash -c "dokku maintenance:custom-page-export '$APP' >'$out' 2>'$err'"
+  [ "$status" -eq 0 ]
+  grep -q "nothing to export" "$err"
+  # a valid but empty archive lists no entries
+  [ -z "$(tar -tf "$out")" ]
+}
+
+@test "maintenance:custom-page-export streams the stored custom page as a tarball" {
+  local tarball="${BATS_TEST_TMPDIR}/in.tar"
+  make_tarball "$tarball" "maintenance.html=maintest-marker-page" "style.css=body {}"
+  dokku maintenance:custom-page "$APP" <"$tarball"
+
+  local out="${BATS_TEST_TMPDIR}/out.tar"
+  run bash -c "dokku maintenance:custom-page-export '$APP' >'$out'"
+  [ "$status" -eq 0 ]
+
+  local extract="${BATS_TEST_TMPDIR}/extract"
+  mkdir -p "$extract"
+  tar -xf "$out" -C "$extract"
+  grep -q "maintest-marker-page" "$extract/maintenance.html"
+  [ -f "$extract/style.css" ]
+}
+
+@test "maintenance:custom-page-export round-trips through custom-page into another app" {
+  local tarball="${BATS_TEST_TMPDIR}/in.tar"
+  make_tarball "$tarball" "maintenance.html=maintest-marker-page" "style.css=body {}"
+  dokku maintenance:custom-page "$APP" <"$tarball"
+
+  local sha1
+  sha1="$(dokku maintenance:report "$APP" --maintenance-custom-page-sha256)"
+
+  local out="${BATS_TEST_TMPDIR}/out.tar"
+  run bash -c "dokku maintenance:custom-page-export '$APP' >'$out'"
+  [ "$status" -eq 0 ]
+
+  local app2
+  app2="$(new_app_name)"
+  create_app "$app2"
+  dokku maintenance:custom-page "$app2" <"$out"
+  local sha2
+  sha2="$(dokku maintenance:report "$app2" --maintenance-custom-page-sha256)"
+  cleanup_app "$app2"
+
+  # exporting then re-importing reproduces the same content checksum
+  [[ "$sha1" =~ ^[0-9a-f]{64}$ ]]
+  [ "$sha1" = "$sha2" ]
+}
+
 @test "maintenance:custom-page-remove clears the checksum and restores the default page" {
   dokku maintenance:enable "$APP"
   local tarball="${BATS_TEST_TMPDIR}/custom.tar"

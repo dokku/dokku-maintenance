@@ -167,6 +167,41 @@ cmd-maintenance-custom-page-remove() {
   dokku_log_verbose "Done"
 }
 
+cmd-maintenance-custom-page-export() {
+  declare desc="exports the current custom page as a tarball to stdout"
+  declare cmd="maintenance:custom-page-export"
+  [[ "$1" == "$cmd" ]] && shift 1
+
+  # Support --app/$DOKKU_APP_NAME flag by reordering args into "$cmd $DOKKU_APP_NAME $@"
+  local argv=("$@")
+  [[ -n "$DOKKU_APP_NAME" ]] && set -- "$DOKKU_APP_NAME" $@
+  ##
+
+  declare APP="$1"
+  local MAINTENANCE_APP_D="$MAINTENANCE_DATA_ROOT/$APP"
+
+  [[ -z "$APP" ]] && dokku_log_fail "Please specify an app to run the command on"
+  verify_app_name "$APP"
+
+  # Refuse to dump a binary tar archive to an interactive terminal (the inverse
+  # of custom-page's `[[ -t 0 ]]` stdin guard); redirect it or pipe it instead.
+  [[ -t 1 ]] && dokku_log_fail "This command writes a tar archive to stdout; redirect it to a file or pipe it"
+
+  # Only a genuinely imported custom page is exportable. An empty checksum means
+  # either nothing is stored or maintenance:enable only wrote the built-in
+  # default page - neither is a customization, so emit an empty archive and note
+  # it on stderr rather than exporting page content.
+  if [[ -z "$(fn-plugin-property-get "$PLUGIN_COMMAND_PREFIX" "$APP" "custom-page-sha256" "")" ]]; then
+    dokku_log_warn "No custom maintenance page set for $APP; nothing to export"
+    tar -cf - -T /dev/null
+    return
+  fi
+
+  # Stream the stored page rooted at the page dir contents so the output can be
+  # piped straight back into `maintenance:custom-page` elsewhere.
+  tar -cf - -C "$MAINTENANCE_APP_D" .
+}
+
 cmd-maintenance-disable() {
   declare desc="take the app out of maintenance mode"
   declare cmd="maintenance:disable"
