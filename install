@@ -17,6 +17,8 @@ fn-maintenance-install() {
   chown dokku:dokku "$MAINTENANCE_DATA_ROOT"
   chmod 755 "$MAINTENANCE_DATA_ROOT"
 
+  fn-plugin-property-setup "$PLUGIN_COMMAND_PREFIX"
+
   # Iterate EVERY app, unfiltered. dokku_apps "false" returns the full app list -
   # the "false" arg does not filter the set, it only suppresses the "you haven't
   # deployed any apps" error so a fresh dokku with zero apps does not abort the
@@ -29,7 +31,15 @@ fn-maintenance-install() {
       migrated=true
       APP="$app" restart_nginx "$app" || true # reload; never abort install
     fi
+    # Record a checksum for any pre-existing custom page (issue #26) so the
+    # report can expose it without a re-upload. A no-op once recorded.
+    fn-maintenance-backfill-checksum "$app" || true
   done
+
+  # The property writes above run as root; hand the store back to dokku so later
+  # (dokku-user) custom-page/report calls can read and update it.
+  local config_dir="${DOKKU_LIB_ROOT:-/var/lib/dokku}/config/$PLUGIN_COMMAND_PREFIX"
+  [[ -d "$config_dir" ]] && chown -R dokku:dokku "$config_dir"
 
   [[ "$migrated" == "true" ]] && dokku_log_verbose "Maintenance asset migration complete"
   return 0

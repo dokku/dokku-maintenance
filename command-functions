@@ -54,6 +54,10 @@ cmd-maintenance-report-single() {
     "--maintenance-enabled: $(fn-maintenance-enabled "$APP")"
   )
 
+  if [[ "$APP" != "--global" ]]; then
+    flag_map+=("--maintenance-custom-page-sha256: $(fn-plugin-property-get "$PLUGIN_COMMAND_PREFIX" "$APP" "custom-page-sha256" "")")
+  fi
+
   if [[ "$APP" == "--global" ]]; then
     fn-maintenance-report-filter-global flag_map
   fi
@@ -112,10 +116,54 @@ cmd-maintenance-custom-page() {
   [[ ! -f "$TEMP_DIR/maintenance.html" ]] && dokku_log_fail "Tar archive missing maintenance.html"
   mkdir -p "$MAINTENANCE_DATA_ROOT/$APP"
 
+  # Replace any previously-stored page so the result is exactly this upload, not
+  # a merge with leftover files from a prior custom page or the default page.
+  find "$MAINTENANCE_DATA_ROOT/$APP" -mindepth 1 -delete
+
   # shellcheck disable=SC2086
   mv $TEMP_DIR/* "$MAINTENANCE_DATA_ROOT/$APP"
   fn-maintenance-fix-permissions "$MAINTENANCE_DATA_ROOT/$APP"
+  fn-plugin-property-write "$PLUGIN_COMMAND_PREFIX" "$APP" "custom-page-sha256" \
+    "$(fn-maintenance-custom-page-checksum "$MAINTENANCE_DATA_ROOT/$APP")"
   popd &>/dev/null || pushd "/tmp" >/dev/null
+  dokku_log_verbose "Done"
+}
+
+cmd-maintenance-custom-page-remove() {
+  declare desc="removes a custom maintenance page, resetting to the default page"
+  declare cmd="maintenance:custom-page-remove"
+  [[ "$1" == "$cmd" ]] && shift 1
+
+  # Support --app/$DOKKU_APP_NAME flag by reordering args into "$cmd $DOKKU_APP_NAME $@"
+  local argv=("$@")
+  [[ -n "$DOKKU_APP_NAME" ]] && set -- "$DOKKU_APP_NAME" $@
+  ##
+
+  declare APP="$1"
+  local NGINX_CONF_D="$DOKKU_ROOT/$APP/nginx.conf.d"
+  local MAINTENANCE_APP_D="$MAINTENANCE_DATA_ROOT/$APP"
+
+  [[ -z "$APP" ]] && dokku_log_fail "Please specify an app to run the command on"
+  verify_app_name "$APP"
+
+  if [[ -z "$(fn-plugin-property-get "$PLUGIN_COMMAND_PREFIX" "$APP" "custom-page-sha256" "")" ]]; then
+    dokku_log_info1 "No custom maintenance page set for $APP"
+    return
+  fi
+
+  dokku_log_info1 "Removing custom maintenance page for $APP..."
+  fn-plugin-property-delete "$PLUGIN_COMMAND_PREFIX" "$APP" "custom-page-sha256"
+  rm -rf "${MAINTENANCE_APP_D:?}"
+
+  # If maintenance is currently enabled, restore the default page so the app
+  # keeps serving a maintenance page from nginx's docroot (the include's `root`
+  # path is unchanged).
+  if [[ -f "$NGINX_CONF_D/maintenance.conf" ]]; then
+    mkdir -p "$MAINTENANCE_APP_D"
+    cp "$MAINTENANCE_PLUGIN_ROOT/templates/maintenance.html" "$MAINTENANCE_APP_D"
+    fn-maintenance-fix-permissions "$MAINTENANCE_APP_D"
+    validate_nginx "$APP" && restart_nginx "$APP" >/dev/null
+  fi
   dokku_log_verbose "Done"
 }
 

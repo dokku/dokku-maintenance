@@ -55,6 +55,19 @@ maintenance_legacy_dir() {
   echo "/home/dokku/${app}/maintenance"
 }
 
+# Reproduces the canonical custom-page checksum over a directory, matching
+# fn-maintenance-custom-page-checksum. Used to prove the reported
+# custom-page-sha256 is reproducible client-side.
+page_checksum() {
+  local dir="$1"
+  (
+    cd "$dir" || exit 0
+    find . -type f | sed 's|^\./||' | LC_ALL=C sort | while IFS= read -r f; do
+      printf '%s  %s\n' "$(sha256sum "$f" | cut -d' ' -f1)" "$f"
+    done | sha256sum | cut -d' ' -f1
+  )
+}
+
 # Builds a tarball at $1 containing the remaining arguments, given as
 # name=content pairs. Files are staged in a scratch dir under
 # $BATS_TEST_TMPDIR so bats cleans them up.

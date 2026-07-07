@@ -56,6 +56,40 @@ teardown() {
   [[ "$output" == *'"enabled":"true"'* ]]
 }
 
+@test "maintenance:report --format json includes an empty custom-page-sha256 by default" {
+  run dokku maintenance:report "$APP" --format json
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"custom-page-sha256":""'* ]]
+}
+
+@test "maintenance:report --format json includes the checksum after a custom page upload" {
+  local tarball="${BATS_TEST_TMPDIR}/good.tar"
+  make_tarball "$tarball" "maintenance.html=maintest-marker-page"
+  dokku maintenance:custom-page "$APP" <"$tarball"
+
+  run dokku maintenance:report "$APP" --format json
+  [ "$status" -eq 0 ]
+  local sha
+  sha="$(echo "$output" | jq -r '.["custom-page-sha256"]')"
+  [[ "$sha" =~ ^[0-9a-f]{64}$ ]]
+}
+
+@test "maintenance:report --maintenance-custom-page-sha256 prints just the value" {
+  local tarball="${BATS_TEST_TMPDIR}/good.tar"
+  make_tarball "$tarball" "maintenance.html=maintest-marker-page"
+  dokku maintenance:custom-page "$APP" <"$tarball"
+
+  run dokku maintenance:report "$APP" --maintenance-custom-page-sha256
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ ^[0-9a-f]{64}$ ]]
+}
+
+@test "maintenance:report lists custom-page-sha256 among valid flags" {
+  run dokku maintenance:report "$APP" --invalid-flag
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"--maintenance-custom-page-sha256"* ]]
+}
+
 @test "maintenance:report --format json rejects an info flag" {
   run dokku maintenance:report "$APP" --format json --maintenance-enabled
   [ "$status" -ne 0 ]
