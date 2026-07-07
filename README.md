@@ -20,6 +20,7 @@ sudo dokku plugin:install https://github.com/dokku/dokku-maintenance.git mainten
 $ dokku help
     maintenance <app>                               Display the list of commands
     maintenance:custom-page <app>                   Imports a tarball from stdin; should contain at least maintenance.html
+    maintenance:custom-page-export <app>            Exports the current custom page as a tarball to stdout
     maintenance:custom-page-remove <app>            Removes a custom maintenance page and resets to the default page
     maintenance:disable <app>                       Disable app maintenance mode
     maintenance:enable <app>                        Enable app maintenance mode
@@ -85,6 +86,21 @@ You have to provide at least a maintenance.html page but you can provide images,
 
 Importing a custom page replaces the previously stored page in full, so files from an earlier upload are not left behind.
 
+Export the current custom page
+
+```
+# dokku maintenance:custom-page-export my-app > my-custom-page.tar            # Server side
+$ ssh dokku@server maintenance:custom-page-export my-app > my-custom-page.tar # Client side
+```
+
+This is the inverse of `maintenance:custom-page`: it streams the app's stored custom page to stdout as a tarball, so it can be saved or re-applied to another app or server. Piping it straight back in reproduces the same page (and the same `custom-page-sha256`):
+
+```
+$ ssh dokku@server maintenance:custom-page-export my-app | ssh dokku@other maintenance:custom-page my-app
+```
+
+If the app has no imported custom page, the command still exits successfully but emits an empty archive and prints a notice to stderr rather than the built-in default page. Because it writes a binary archive to stdout, redirect it to a file or pipe it rather than running it directly in a terminal.
+
 Remove a custom page and reset to the default
 
 ```
@@ -100,6 +116,8 @@ Removing the custom page clears the stored `custom-page-sha256`. If maintenance 
 ## custom page checksum
 
 `maintenance:report` exposes a `custom-page-sha256` key so tools that manage maintenance declaratively (for example [docket](https://github.com/dokku/docket)) can tell whether the stored page already matches the desired one and skip a redundant upload. The value is empty until a custom page is imported, and it is a checksum of the extracted page content rather than the uploaded tar (tar wrappers embed mtimes and entry ordering and are not byte-reproducible).
+
+The checksum cannot be reversed into the page itself, so to recover the actual content a remote client uses `maintenance:custom-page-export` (see [usage](#usage) above), which streams the stored page back out as a tarball. This lets a declarative tool reconstruct a server's custom maintenance page without reading the on-disk files directly.
 
 The checksum is a canonical digest over every stored file: for each regular file, sorted by its path relative to the page directory, a line of `<sha256-of-contents>  <relative-path>` is emitted, and the sha256 of that stream is the reported value. A client can reproduce it over the source directory before uploading:
 

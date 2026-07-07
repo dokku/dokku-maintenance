@@ -8,6 +8,7 @@ load 'test_helper'
   [[ "$output" == *"Usage: dokku maintenance"* ]]
   [[ "$output" == *"Manage the maintenance mode for an app"* ]]
   [[ "$output" == *"maintenance:custom-page"* ]]
+  [[ "$output" == *"maintenance:custom-page-export"* ]]
   [[ "$output" == *"maintenance:disable"* ]]
   [[ "$output" == *"maintenance:enable"* ]]
   [[ "$output" == *"maintenance:report"* ]]

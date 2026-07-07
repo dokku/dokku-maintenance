@@ -28,6 +28,7 @@ fn-help-content() {
   declare desc="return help content"
   cat <<help_content
     maintenance:custom-page <app>, Imports a tarball from stdin; should contain at least maintenance.html
+    maintenance:custom-page-export <app>, Exports the current custom page as a tarball to stdout
     maintenance:custom-page-remove <app>, Removes a custom maintenance page and resets to the default page
     maintenance:disable <app>, Disable app maintenance mode
     maintenance:enable <app>, Enable app maintenance mode
